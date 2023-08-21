@@ -90,6 +90,10 @@ docker start [container_ID]
 docker rm [container_ID]
 ```
 - Khi container đang chạy mà vẫn muốn xóa: `docker rm -f [container_ID]`
+### 9. Danh sách images
+```
+docker images
+```
 ## VII. So sánh giữa docker và vm
 ### 1. Giống:
 Là công nghệ ảo hóa, Docker và máy ảo (VM) có những điểm tương đồng nhất định.
