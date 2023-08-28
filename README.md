@@ -114,8 +114,149 @@ sudo apt-get install docker-ce
 ## Dockerfile
 Dockerfile là một file dạng text, không có đuôi, giúp thiết lập cấu trúc cho docker image nhờ chứa một tập hợp các câu lệnh. Dockerfile giúp đơn giản hóa tiến trình từ lúc bắt đầu đến khi kết thúc.
 
+Định dạng của Dockerfile: 
+```
+# Comment
+INSTRUCTION arguments
+```
+Các arguments là đoạn nội dung mà chỉ thị sẽ làm gì. INSTRUCTION sẽ không phân biệt case-sensitive, nhưng để tốt nhất thì nên viết UPPERCASE cho dễ phân biệt enviroment variable khác.
 
+Docker sẽ chạy lần lượt các lệnh trong file Dockerfile từ trên xuống, và một Dockerfile phải bắt đầu bằng enviroment variable FROM.
+### 1 số lệnh có sẵn
+#### FROM:
+- Dùng để chỉ ra image được build từ đâu (từ image gốc nào)
+- VD: `FROM ubuntu.`
+#### RUN:
+- Dùng để chạy một lệnh nào đó khi build image
+- VD: `RUN apt-get update && apt-get install -y nginx`
+#### CMD:
+- Lệnh CMD dùng để truyền một lệnh của Linux mỗi khi thực hiện khởi tạo một container từ image (image này được build từ Dockerfile).
+- VD1: `CMD ["nginx", "-g", "daemon off;"]`
+- VD2: `CMD nginx -g daemon off`
+#### LABEL:
+- Chỉ thị LABEL dùng để add các metadata vào image.
+`LABEL <key>=<value> <key>=<value> <key>=<value> ...`
+- VD:
+```
+LABEL "com.example.vendor"="ACME Incorporated"
+LABEL com.example.label-with-value="foo"
+LABEL version="1.0"
+LABEL description="This text illustrates \
+that label-values can span multiple lines."
+```
+Để xem các label của images, dùng lệnh `docker inspect <image_name_or_id>`.
+#### MAINTAINER:
+- Dùng để đặt tên giả của images.
+```
+MAINTAINER <name>
+```
+Hoặc: `LABEL maintainer "your-email@example.com"`
+#### EXPOSE:
+- Lệnh EXPOSE thông báo cho Docker rằng image sẽ lắng nghe trên các cổng được chỉ định khi chạy.
+```
+EXPOSE <port> [<port>...]
+```
+#### ENV:
+- Khai báo cáo biến giá trị môi trường. Khi run container từ image, các biến môi trường này vẫn có hiệu lực.
+```
+ENV <key> <value>
+ENV <key>=<value> ...
+```
+#### ADD:
+Chỉ thị ADD copy file, thư mục, remote files URL (src) và thêm chúng vào filesystem của image (dest).
 
+Các quy định:
+- The path must be inside the context of the build: Có nghĩa là phải nằm trong thư mục đang build (chứa dockerfiles).
+- If is a directory, the entire contents of the directory are copied, including filesystem metadata. The directory itself is not copied, just its contents.
+- If multiple resources are specified, either directly or due to the use of a wildcard, then must be a directory, and it must end with a slash /.
+- If does not end with a trailing slash, it will be considered a regular file and the contents of will be written at .
+- If doesn’t exist, it is created along with all missing directories in its path.
+
+#### COPY:
+- Chỉ thị COPY, copy file, thư mục (src) và thêm chúng vào filesystem của container (dest).
+- Các lưu ý tương tự chỉ thị ADD.
+```
+COPY <src>... <dest>
+COPY ["<src>",... "<dest>"] (this form is required for paths containing whitespace)
+```
+#### ENTRYPOINT:
+- Hai cái CMD và ENTRYPOINT có tác dụng tương tự nhau. Nếu một Dockerfile có cả CMD và ENTRYPOINT thì CMD sẽ thành param cho script ENTRYPOINT. Lý do người ta dùng ENTRYPOINT nhằm chuẩn bị các điều kiện setup như tạo user, mkdir, change owner... cần thiết để chạy service trong container.
+```
+ENTRYPOINT ["executable", "param1", "param2"] (exec form, preferred)
+ENTRYPOINT command param1 param2 (shell form)
+```
+#### VOLUME:
+- Mount thư mục từ máy host và container. Tương tự option -v khi tạo container.
+```
+VOLUME ["/data"]
+```
+- Thư mục chưa volumes là /var/lib/docker/volumes/. Ứng với mỗi container sẽ có các thư mục con nằm trong thư mục này.
+#### USER:
+- Set username hoặc UID để chạy các lệnh RUN, CMD, ENTRYPOINT trong dockerfiles.
+- VD: `USER daemon`
+#### WORKDIR:
+- Chỉ thị WORKDIR dùng để đặt thư mục đang làm việc cho các chỉ thị khác như: RUN, CMD, ENTRYPOINT, COPY, ADD,...
+- VD: `WORKDIR /path/to/workdir`
+#### ARG:
+- Chỉ thị ARG dùng để định nghĩa các giá trị của biến được dùng trong quá trình build image (lệnh docker build --build-arg =). Biến ARG sẽ không bền vững như khi sử dụng ENV.
+- VD: `ARG <name>[=<default value>]`
+#### STOPSIGNAL:
+- Gửi tín hiệu để container tắt đúng cách.
+- VD: `STOPSIGNAL SIGTERM`
+
+#### SHELL:
+- Chỉ thị Shell cho phép các shell form khác có thể ghi đè shell mặc định. Mặc định trên Linux là `["/bin/sh", "-c"]` và Windows là `["cmd", "/S", "/C"]`.
+- VD:
+```
+FROM microsoft/windowsservercore
+
+# Executed as cmd /S /C echo default
+RUN echo default
+
+# Executed as cmd /S /C powershell -command Write-Host default
+RUN powershell -command Write-Host default
+
+# Executed as powershell -command Write-Host hello
+SHELL ["powershell", "-command"]
+RUN Write-Host hello
+
+# Executed as cmd /S /C echo hello
+SHELL ["cmd", "/S"", "/C"]
+RUN echo hello
+```
+#### ONBUILD:
+- Chỉ thị ONBUILD được khai báo trong base image. Và khi child image build image từ base image thì lệnh ONBUILD mới được thực thi.
+```
+ONBUILD [INSTRUCTION]
+```
+
+#### Ví dụ về 1 dockerfile:
+VD: Nginx
+```
+# FROM
+FROM ubuntu:20.04
+
+# ENV
+ENV MY_CUSTOM_ENV=HelloWorld
+
+# LABEL
+LABEL maintainer="your-email@example.com"
+
+# RUN
+RUN apt-get update && apt-get install -y nginx
+
+# EXPOSE
+EXPOSE 80
+
+# STOPSIGNAL
+STOPSIGNAL SIGTERM
+
+# CMD
+CMD ["nginx", "-g", "daemon off;"]
+```
+- Sau khi tạo dockerfile thì sử dụng lệnh `docker build -t ubuntu-nginx .` để xây dựng hình ảnh.
+- Chạy image: `docker run -p 80:80 ubuntu-nginx`
+- Kiểm tra bằng cách vào địa chỉ http://localhost.
 ## So sánh giữa docker và vm
 Sự khác biệt giữa Docker và Virtual Machine
 
